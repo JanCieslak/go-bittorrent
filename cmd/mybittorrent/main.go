@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"log"
+
 	// Uncomment this line to pass the first stage
 	// "encoding/json"
 	"fmt"
@@ -40,7 +42,7 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
+	log.Println("Logs from your program will appear here!")
 
 	command := os.Args[1]
 
