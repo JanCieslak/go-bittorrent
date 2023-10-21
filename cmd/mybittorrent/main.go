@@ -4,40 +4,103 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"unicode"
 )
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	log.Println("Logs from your program will appear here!")
+	if len(os.Args) <= 2 {
+		fmt.Println("Command not specified")
+		os.Exit(1)
+	}
 
 	command := os.Args[1]
 
-	if command == "decode" {
-		// Uncomment this block to pass the first stage
-
-		bencodedValue := os.Args[2]
-
-		decoder := NewDecoder(bencodedValue)
-		decoded, err := decoder.Decode()
-		if err != nil {
-			fmt.Println(err)
-			return
+	switch command {
+	case "decode":
+		if len(os.Args) != 3 {
+			fmt.Println("No value to decode specified")
+			os.Exit(1)
 		}
 
-		log.Println("DICT:", decoded)
-		jsonOutput, _ := json.Marshal(decoded)
+		decoded, err := NewDecoder(os.Args[2]).Decode()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		jsonOutput, err := json.Marshal(decoded)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
 		fmt.Println(string(jsonOutput))
-	} else {
+	case "info":
+		if len(os.Args) != 3 {
+			fmt.Println("No torrent file to parse specified")
+			os.Exit(1)
+		}
+
+		meta, err := ParseMetaInfoFile(os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Tracker URL:", meta.Announce)
+		fmt.Println("Length:", meta.Info.Length)
+	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
 }
 
 // Bencode decoder library
+
+// Meta info file parser
+
+type MetaInfo struct {
+	Announce string `json:"announce"`
+	Info     Info   `json:"info"`
+}
+
+type Info struct {
+	Length      int    `json:"length"`
+	Name        string `json:"name"`
+	PieceLength int    `json:"piece length"`
+	Pieces      string `json:"pieces"`
+}
+
+func ParseMetaInfoFile(filepath string) (*MetaInfo, error) {
+	fileContent, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	decoded, err := NewDecoder(string(fileContent)).Decode()
+	if err != nil {
+		return nil, err
+	}
+
+	decodedJson, err := json.Marshal(decoded)
+	if err != nil {
+		return nil, err
+	}
+
+	var meta MetaInfo
+	err = json.Unmarshal(decodedJson, &meta)
+	if err != nil {
+		return nil, err
+	}
+
+	return &meta, nil
+}
+
+// Decoder
+
+type Dictionary map[string]interface{}
 
 type Decoder struct {
 	*bytes.Buffer
@@ -129,8 +192,8 @@ func (b *Decoder) decodeList() ([]interface{}, error) {
 	return list, nil
 }
 
-func (b *Decoder) decodeDict() (map[string]interface{}, error) {
-	dict := make(map[string]interface{})
+func (b *Decoder) decodeDict() (Dictionary, error) {
+	dict := make(Dictionary)
 
 	nextRune, _, err := b.ReadRune()
 	if err != nil {
