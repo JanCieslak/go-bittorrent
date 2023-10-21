@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/codecrafters-io/bittorrent-starter-go/cmd/mybittorrent/bencode"
 	"log"
 	"os"
 )
@@ -19,7 +18,7 @@ func main() {
 
 		bencodedValue := os.Args[2]
 
-		decoder := bencode.NewDecoder(bencodedValue)
+		decoder := NewDecoder(bencodedValue)
 		decoded, err := decoder.Decode()
 		if err != nil {
 			fmt.Println(err)
