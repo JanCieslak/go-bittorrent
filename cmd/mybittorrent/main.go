@@ -28,6 +28,7 @@ func main() {
 			return
 		}
 
+		log.Println("DICT:", decoded)
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
 	} else {
@@ -35,6 +36,8 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// Bencode decoder library
 
 type Decoder struct {
 	*bytes.Buffer
@@ -48,10 +51,6 @@ func NewDecoder(encoded string) *Decoder {
 
 func (b *Decoder) Decode() (interface{}, error) {
 	return b.decodeBencode()
-}
-
-func (b *Decoder) Read(input []byte) (int, error) {
-	return 0, nil
 }
 
 func (b *Decoder) decodeBencode() (interface{}, error) {
@@ -70,8 +69,10 @@ func (b *Decoder) decodeBencode() (interface{}, error) {
 		return b.decodeInteger()
 	case prefix == 'l':
 		return b.decodeList()
+	case prefix == 'd':
+		return b.decodeDict()
 	default:
-		return "", fmt.Errorf("prefix not recognized: %b", prefix)
+		return "", fmt.Errorf("prefix not recognized: %s", string(prefix))
 	}
 }
 
@@ -101,7 +102,6 @@ func (b *Decoder) decodeInteger() (int, error) {
 func (b *Decoder) decodeList() ([]interface{}, error) {
 	list := make([]interface{}, 0)
 
-	var nextRune rune
 	nextRune, _, err := b.ReadRune()
 	if err != nil {
 		return nil, err
@@ -127,4 +127,39 @@ func (b *Decoder) decodeList() ([]interface{}, error) {
 	}
 
 	return list, nil
+}
+
+func (b *Decoder) decodeDict() (map[string]interface{}, error) {
+	dict := make(map[string]interface{})
+
+	nextRune, _, err := b.ReadRune()
+	if err != nil {
+		return nil, err
+	}
+
+	for nextRune != 'e' {
+		err = b.UnreadRune()
+		if err != nil {
+			return nil, err
+		}
+
+		key, err := b.decodeString()
+		if err != nil {
+			return nil, err
+		}
+
+		value, err := b.Decode()
+		if err != nil {
+			return nil, err
+		}
+
+		dict[key] = value
+
+		nextRune, _, err = b.ReadRune()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return dict, nil
 }
