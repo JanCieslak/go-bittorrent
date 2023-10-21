@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
-
+	"strings"
 	// Uncomment this line to pass the first stage
 	// "encoding/json"
 	"fmt"
@@ -17,27 +17,35 @@ import (
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
 func decodeBencode(bencodedString string) (interface{}, error) {
-	if unicode.IsDigit(rune(bencodedString[0])) {
-		var firstColonIndex int
-
-		for i := 0; i < len(bencodedString); i++ {
-			if bencodedString[i] == ':' {
-				firstColonIndex = i
-				break
-			}
-		}
-
-		lengthStr := bencodedString[:firstColonIndex]
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			return "", err
-		}
-
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
-	} else {
-		return "", fmt.Errorf("only strings are supported at the moment")
+	switch prefix := rune(bencodedString[0]); {
+	case unicode.IsDigit(prefix):
+		return decodeString(bencodedString)
+	case prefix == 'i':
+		return decodeInteger(bencodedString)
+	default:
+		return "", fmt.Errorf("could not decode: %s", bencodedString)
 	}
+}
+
+func decodeString(bencodedString string) (string, error) {
+	s := strings.SplitN(bencodedString, ":", 2)
+	if len(s) != 2 {
+		return "", fmt.Errorf("invalid bencoded string %s", bencodedString)
+	}
+
+	strLen := s[0]
+	str := s[1]
+
+	length, err := strconv.Atoi(strLen)
+	if err != nil {
+		return "", err
+	}
+
+	return str[:length], nil
+}
+
+func decodeInteger(bencodedString string) (int, error) {
+	return strconv.Atoi(bencodedString[1 : len(bencodedString)-1])
 }
 
 func main() {
