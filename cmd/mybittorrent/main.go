@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -54,21 +55,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		info := meta["info"].(Dictionary)
-		fmt.Println("Tracker URL:", meta["announce"])
-		fmt.Println("Length:", info["length"])
-		fmt.Println("Info Hash:", info.HashBencoded())
-		fmt.Println("Piece Length:", info["piece length"])
+		fmt.Println("Tracker URL:", meta.Announce.String())
+		fmt.Println("Length:", meta.Info.Length)
+		fmt.Println("Info Hash:", meta.HashInfo())
+		fmt.Println("Piece Length:", meta.Info.PieceLength)
 		fmt.Println("Piece Hashes:")
-		pieces := info["pieces"].(string)
-		if len(pieces)%20 != 0 {
-			fmt.Println("Pieces not a multiple of 20")
-			os.Exit(1)
-		}
-		buf := bytes.NewBufferString(pieces)
-		for len(buf.Bytes()) > 0 {
-			hash := buf.Next(20)
-			fmt.Println(hex.EncodeToString(hash))
+		for _, p := range meta.Info.Pieces {
+			fmt.Println(p)
 		}
 	default:
 		fmt.Println("Unknown command: " + command)
@@ -78,7 +71,25 @@ func main() {
 
 // Bencode library
 
-func ParseMetaInfoFile(filepath string) (Dictionary, error) {
+type MetaInfoFile struct {
+	Raw      Dictionary
+	Announce url.URL
+	Info     Info
+}
+
+type Info struct {
+	Name        string
+	Length      int
+	PieceLength int
+	Pieces      []string
+}
+
+func (m MetaInfoFile) HashInfo() string {
+	info := m.Raw["info"].(Dictionary)
+	return info.HashInfo()
+}
+
+func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {
 	fileContent, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
@@ -90,7 +101,36 @@ func ParseMetaInfoFile(filepath string) (Dictionary, error) {
 	}
 
 	if meta, ok := decoded.(Dictionary); ok {
-		return meta, nil
+		announce, err := url.Parse(meta["announce"].(string))
+		if err != nil {
+			return nil, err
+		}
+
+		info := meta["info"].(Dictionary)
+
+		pieces := info["pieces"].(string)
+		if len(pieces)%20 != 0 {
+			fmt.Println("Pieces not a multiple of 20")
+			os.Exit(1)
+		}
+		buf := bytes.NewBufferString(pieces)
+		piecesHashes := make([]string, 0)
+		for len(buf.Bytes()) > 0 {
+			hash := buf.Next(20)
+			piecesHashes = append(piecesHashes, hex.EncodeToString(hash))
+		}
+		sort.Sort(sort.StringSlice(piecesHashes))
+
+		return &MetaInfoFile{
+			Raw:      meta,
+			Announce: *announce,
+			Info: Info{
+				Name:        info["name"].(string),
+				Length:      info["length"].(int),
+				PieceLength: info["piece length"].(int),
+				Pieces:      piecesHashes,
+			},
+		}, nil
 	}
 
 	return nil, fmt.Errorf("metafile not a dict")
@@ -100,25 +140,33 @@ func ParseMetaInfoFile(filepath string) (Dictionary, error) {
 
 type Dictionary map[string]interface{}
 
-func (d Dictionary) HashBencoded() string {
-	sorted := d.sort()
-	sum := sha1.Sum([]byte(Encode(sorted)))
-	return hex.EncodeToString(sum[:])
+func (d Dictionary) EncodeInfo() string {
+	buf := new(bytes.Buffer)
+	buf.WriteRune('d')
+	d.inSortedOrder(func(k string, v interface{}) {
+		_, _ = buf.WriteString(Encode(k))
+		_, _ = buf.WriteString(Encode(v))
+	})
+	buf.WriteRune('e')
+	return buf.String()
 }
 
-func (d Dictionary) sort() Dictionary {
-	keys := make([]string, 0)
+func (d Dictionary) HashInfo() string {
+	encodedDict := d.EncodeInfo()
+	log.Println(encodedDict)
+	shaSum := sha1.Sum([]byte(encodedDict))
+	return hex.EncodeToString(shaSum[:])
+}
+
+func (d Dictionary) inSortedOrder(fn func(k string, v interface{})) {
+	keys := make([]string, 0, len(d))
 	for k := range d {
 		keys = append(keys, k)
 	}
-	sort.Sort(sort.StringSlice(keys))
-
-	result := make(Dictionary, 0)
-	for _, k := range keys {
-		result[k] = d[k]
+	sort.Strings(keys)
+	for _, key := range keys {
+		fn(key, d[key])
 	}
-
-	return result
 }
 
 type Decoder struct {
@@ -261,6 +309,7 @@ func Encode(v interface{}) string {
 	case Dictionary:
 		buf := new(bytes.Buffer)
 		for key, value2 := range value {
+			log.Println("key:", key)
 			buf.WriteString(Encode(key))
 			buf.WriteString(Encode(value2))
 		}
