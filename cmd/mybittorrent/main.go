@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent"
 	"os"
 	"strconv"
 )
@@ -23,7 +24,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		decoded, err := NewDecoder(os.Args[2]).Decode()
+		decoded, err := mybittorrent.NewDecoder(os.Args[2]).Decode()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -42,7 +43,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		meta, err := ParseMetaInfoFile(os.Args[2])
+		meta, err := mybittorrent.ParseMetaInfoFile(os.Args[2])
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -58,7 +59,7 @@ func main() {
 			fmt.Println(p)
 		}
 
-		trackerInfo, err := FetchTrackerInfo(meta)
+		trackerInfo, err := mybittorrent.FetchTrackerInfo(meta)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
