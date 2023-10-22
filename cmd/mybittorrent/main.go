@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"unicode"
@@ -49,31 +52,20 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Println("Tracker URL:", meta.Announce)
-		fmt.Println("Length:", meta.Info.Length)
+		info := meta["info"].(Dictionary)
+		sum := sha1.Sum([]byte(Encode(info)))
+		fmt.Println("Tracker URL:", meta["announce"])
+		fmt.Println("Length:", info["length"])
+		fmt.Println("Info Hash:", hex.EncodeToString(sum[:]))
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
 }
 
-// Bencode decoder library
+// Bencode library
 
-// Meta info file parser
-
-type MetaInfo struct {
-	Announce string `json:"announce"`
-	Info     Info   `json:"info"`
-}
-
-type Info struct {
-	Length      int    `json:"length"`
-	Name        string `json:"name"`
-	PieceLength int    `json:"piece length"`
-	Pieces      string `json:"pieces"`
-}
-
-func ParseMetaInfoFile(filepath string) (*MetaInfo, error) {
+func ParseMetaInfoFile(filepath string) (Dictionary, error) {
 	fileContent, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
@@ -84,18 +76,11 @@ func ParseMetaInfoFile(filepath string) (*MetaInfo, error) {
 		return nil, err
 	}
 
-	decodedJson, err := json.Marshal(decoded)
-	if err != nil {
-		return nil, err
+	if meta, ok := decoded.(Dictionary); ok {
+		return meta, nil
 	}
 
-	var meta MetaInfo
-	err = json.Unmarshal(decodedJson, &meta)
-	if err != nil {
-		return nil, err
-	}
-
-	return &meta, nil
+	return nil, fmt.Errorf("metafile not a dict")
 }
 
 // Decoder
@@ -225,4 +210,30 @@ func (b *Decoder) decodeDict() (Dictionary, error) {
 	}
 
 	return dict, nil
+}
+
+func Encode(v interface{}) string {
+	switch value := v.(type) {
+	case string:
+		return fmt.Sprintf("%d:%s", len(value), value)
+	case int, int8, int16, int32, int64:
+		return fmt.Sprintf("i%de", value)
+	case []interface{}:
+		buf := new(bytes.Buffer)
+		for _, item := range value {
+			buf.WriteString(Encode(item))
+		}
+		return fmt.Sprintf("l%se", buf.String())
+	case Dictionary:
+		buf := new(bytes.Buffer)
+		for key, value2 := range value {
+			buf.WriteString(Encode(key))
+			buf.WriteString(Encode(value2))
+		}
+		return fmt.Sprintf("d%se", buf.String())
+	default:
+		log.Println("unsupported case of", value)
+		os.Exit(1)
+		return ""
+	}
 }
