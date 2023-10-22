@@ -72,7 +72,7 @@ func main() {
 // Bencode library
 
 type MetaInfoFile struct {
-	Raw      Dictionary
+	Raw      map[string]interface{}
 	Announce url.URL
 	Info     Info
 }
@@ -85,8 +85,9 @@ type Info struct {
 }
 
 func (m MetaInfoFile) HashInfo() string {
-	info := m.Raw["info"].(Dictionary)
-	return info.HashInfo()
+	info := m.Raw["info"].(map[string]interface{})
+	shaSum := sha1.Sum([]byte(Encode(info)))
+	return hex.EncodeToString(shaSum[:])
 }
 
 func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {
@@ -100,13 +101,13 @@ func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {
 		return nil, err
 	}
 
-	if meta, ok := decoded.(Dictionary); ok {
+	if meta, ok := decoded.(map[string]interface{}); ok {
 		announce, err := url.Parse(meta["announce"].(string))
 		if err != nil {
 			return nil, err
 		}
 
-		info := meta["info"].(Dictionary)
+		info := meta["info"].(map[string]interface{})
 
 		pieces := info["pieces"].(string)
 		if len(pieces)%20 != 0 {
@@ -138,34 +139,14 @@ func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {
 
 // Decoder
 
-type Dictionary map[string]interface{}
-
-func (d Dictionary) EncodeInfo() string {
-	buf := new(bytes.Buffer)
-	buf.WriteRune('d')
-	d.inSortedOrder(func(k string, v interface{}) {
-		_, _ = buf.WriteString(Encode(k))
-		_, _ = buf.WriteString(Encode(v))
-	})
-	buf.WriteRune('e')
-	return buf.String()
-}
-
-func (d Dictionary) HashInfo() string {
-	encodedDict := d.EncodeInfo()
-	log.Println(encodedDict)
-	shaSum := sha1.Sum([]byte(encodedDict))
-	return hex.EncodeToString(shaSum[:])
-}
-
-func (d Dictionary) inSortedOrder(fn func(k string, v interface{})) {
-	keys := make([]string, 0, len(d))
-	for k := range d {
+func inSortedOrder(m map[string]interface{}, fn func(k string, v interface{})) {
+	keys := make([]string, 0, len(m))
+	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		fn(key, d[key])
+		fn(key, m[key])
 	}
 }
 
@@ -259,8 +240,8 @@ func (b *Decoder) decodeList() ([]interface{}, error) {
 	return list, nil
 }
 
-func (b *Decoder) decodeDict() (Dictionary, error) {
-	dict := make(Dictionary)
+func (b *Decoder) decodeDict() (map[string]interface{}, error) {
+	dict := make(map[string]interface{})
 
 	nextRune, _, err := b.ReadRune()
 	if err != nil {
@@ -306,13 +287,12 @@ func Encode(v interface{}) string {
 			buf.WriteString(Encode(item))
 		}
 		return fmt.Sprintf("l%se", buf.String())
-	case Dictionary:
+	case map[string]interface{}:
 		buf := new(bytes.Buffer)
-		for key, value2 := range value {
-			log.Println("key:", key)
-			buf.WriteString(Encode(key))
-			buf.WriteString(Encode(value2))
-		}
+		inSortedOrder(value, func(k string, v interface{}) {
+			_, _ = buf.WriteString(Encode(k))
+			_, _ = buf.WriteString(Encode(v))
+		})
 		return fmt.Sprintf("d%se", buf.String())
 	default:
 		log.Println("unsupported case of", value)
