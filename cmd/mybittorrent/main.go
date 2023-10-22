@@ -47,6 +47,7 @@ func main() {
 			os.Exit(1)
 		}
 
+		// TODO: Should return Meta struct
 		meta, err := ParseMetaInfoFile(os.Args[2])
 		if err != nil {
 			fmt.Println(err)
@@ -54,30 +55,24 @@ func main() {
 		}
 
 		info := meta["info"].(Dictionary)
-		sortedInfo := sortMap(info)
-		sum := sha1.Sum([]byte(Encode(sortedInfo)))
 		fmt.Println("Tracker URL:", meta["announce"])
 		fmt.Println("Length:", info["length"])
-		fmt.Println("Info Hash:", hex.EncodeToString(sum[:]))
+		fmt.Println("Info Hash:", info.HashBencoded())
+		fmt.Println("Info Hash:", info["piece length"])
+		pieces := info["pieces"].(string)
+		if len(pieces)%20 != 0 {
+			fmt.Println("Pieces not a multiple of 20")
+			os.Exit(1)
+		}
+		buf := bytes.NewBufferString(pieces)
+		for len(buf.Bytes()) > 0 {
+			hash := buf.Next(20)
+			fmt.Println(hex.EncodeToString(hash))
+		}
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
-}
-
-func sortMap(m Dictionary) Dictionary {
-	keys := make([]string, 0)
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Sort(sort.StringSlice(keys))
-
-	result := make(Dictionary, 0)
-	for _, k := range keys {
-		result[k] = m[k]
-	}
-
-	return result
 }
 
 // Bencode library
@@ -103,6 +98,27 @@ func ParseMetaInfoFile(filepath string) (Dictionary, error) {
 // Decoder
 
 type Dictionary map[string]interface{}
+
+func (d Dictionary) HashBencoded() string {
+	sorted := d.sort()
+	sum := sha1.Sum([]byte(Encode(sorted)))
+	return hex.EncodeToString(sum[:])
+}
+
+func (d Dictionary) sort() Dictionary {
+	keys := make([]string, 0)
+	for k := range d {
+		keys = append(keys, k)
+	}
+	sort.Sort(sort.StringSlice(keys))
+
+	result := make(Dictionary, 0)
+	for _, k := range keys {
+		result[k] = d[k]
+	}
+
+	return result
+}
 
 type Decoder struct {
 	*bytes.Buffer
