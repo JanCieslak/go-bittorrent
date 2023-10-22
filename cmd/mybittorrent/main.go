@@ -54,7 +54,8 @@ func main() {
 		}
 
 		info := meta["info"].(Dictionary)
-		sum := sha1.Sum([]byte(Encode(sortMap(info))))
+		sortedInfo := sortMap(info)
+		sum := sha1.Sum([]byte(Encode(sortedInfo)))
 		fmt.Println("Tracker URL:", meta["announce"])
 		fmt.Println("Length:", info["length"])
 		fmt.Println("Info Hash:", hex.EncodeToString(sum[:]))
@@ -64,14 +65,14 @@ func main() {
 	}
 }
 
-func sortMap(m map[string]interface{}) map[string]interface{} {
-	keys := make([]string, len(m))
+func sortMap(m Dictionary) Dictionary {
+	keys := make([]string, 0)
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Sort(sort.StringSlice(keys))
 
-	result := make(map[string]interface{}, len(m))
+	result := make(Dictionary, 0)
 	for _, k := range keys {
 		result[k] = m[k]
 	}
