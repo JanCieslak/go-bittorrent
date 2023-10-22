@@ -58,7 +58,8 @@ func main() {
 		fmt.Println("Tracker URL:", meta["announce"])
 		fmt.Println("Length:", info["length"])
 		fmt.Println("Info Hash:", info.HashBencoded())
-		fmt.Println("Info Hash:", info["piece length"])
+		fmt.Println("Piece Length:", info["piece length"])
+		fmt.Println("Piece Hashes:")
 		pieces := info["pieces"].(string)
 		if len(pieces)%20 != 0 {
 			fmt.Println("Pieces not a multiple of 20")
