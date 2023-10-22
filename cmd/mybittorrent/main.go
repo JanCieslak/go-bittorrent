@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"unicode"
 )
@@ -53,7 +54,7 @@ func main() {
 		}
 
 		info := meta["info"].(Dictionary)
-		sum := sha1.Sum([]byte(Encode(info)))
+		sum := sha1.Sum([]byte(Encode(sortMap(info))))
 		fmt.Println("Tracker URL:", meta["announce"])
 		fmt.Println("Length:", info["length"])
 		fmt.Println("Info Hash:", hex.EncodeToString(sum[:]))
@@ -61,6 +62,21 @@ func main() {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
+}
+
+func sortMap(m map[string]interface{}) map[string]interface{} {
+	keys := make([]string, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Sort(sort.StringSlice(keys))
+
+	result := make(map[string]interface{}, len(m))
+	for _, k := range keys {
+		result[k] = m[k]
+	}
+
+	return result
 }
 
 // Bencode library
