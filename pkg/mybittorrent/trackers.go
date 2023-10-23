@@ -57,7 +57,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 	}
 
 	if trackerResponse, ok := decoded.(map[string]interface{}); ok {
-		println(trackerResponse)
+		fmt.Println(trackerResponse)
 		peers := trackerResponse["peers"].(string)
 
 		if len(peers)%6 != 0 {
