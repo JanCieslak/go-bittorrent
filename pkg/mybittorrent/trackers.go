@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
@@ -30,7 +31,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 
 	infoHash := meta.HashInfo()
 	params := req.URL.Query()
-	params.Add("info_hash", string(infoHash[:]))
+	params.Add("info_hash", url.QueryEscape(string(infoHash[:])))
 	params.Add("peer_id", "00112233445566778899")
 	params.Add("port", "6881")
 	params.Add("uploaded", "0")
@@ -56,8 +57,6 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 	}
 
 	if trackerResponse, ok := decoded.(map[string]interface{}); ok {
-		fmt.Println(trackerResponse)
-
 		peers := trackerResponse["peers"].(string)
 
 		if len(peers)%6 != 0 {
