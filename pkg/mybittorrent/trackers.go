@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,6 +32,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 
 	infoHash := meta.HashInfo()
 	params := req.URL.Query()
+	log.Println("info:", url.QueryEscape(string(infoHash[:])))
 	params.Add("info_hash", url.QueryEscape(string(infoHash[:])))
 	params.Add("peer_id", "00112233445566778899")
 	params.Add("port", "6881")
