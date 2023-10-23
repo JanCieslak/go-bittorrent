@@ -22,9 +22,10 @@ type Info struct {
 	Pieces      []string
 }
 
-func (m MetaInfoFile) HashInfo() [20]byte {
+func (m MetaInfoFile) HashInfo() []byte {
 	info := m.Raw["info"].(map[string]interface{})
-	return sha1.Sum([]byte(Encode(info)))
+	infoHash := sha1.Sum([]byte(Encode(info)))
+	return infoHash[:]
 }
 
 func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {

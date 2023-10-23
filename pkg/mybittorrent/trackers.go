@@ -40,9 +40,8 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 		return nil, err
 	}
 
-	infoHash := meta.HashInfo()
 	params := req.URL.Query()
-	params.Add("info_hash", string(infoHash[:]))
+	params.Add("info_hash", string(meta.HashInfo()))
 	params.Add("peer_id", string(peerId))
 	params.Add("port", "6881")
 	params.Add("uploaded", "0")
