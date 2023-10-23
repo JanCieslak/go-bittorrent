@@ -2,13 +2,12 @@ package mybittorrent
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 )
 
@@ -24,17 +23,27 @@ type Peer struct {
 
 var trackerInfoClient = new(http.Client)
 
+func randomPeerId() ([]byte, error) {
+	b := make([]byte, 20)
+	_, err := rand.Read(b)
+	return b, err
+}
+
 func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, meta.Announce, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	peerId, err := randomPeerId()
+	if err != nil {
+		return nil, err
+	}
+
 	infoHash := meta.HashInfo()
 	params := req.URL.Query()
-	log.Println("info:", url.QueryEscape(string(infoHash[:])))
-	params.Add("info_hash", url.QueryEscape(string(infoHash[:])))
-	params.Add("peer_id", "00112233445566778899")
+	params.Add("info_hash", string(infoHash[:]))
+	params.Add("peer_id", string(peerId))
 	params.Add("port", "6881")
 	params.Add("uploaded", "0")
 	params.Add("downloaded", "0")
@@ -60,7 +69,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 
 	if trackerResponse, ok := decoded.(map[string]interface{}); ok {
 		if failure, ok := trackerResponse["failure reason"]; ok {
-			return nil, fmt.Errorf("error: %s", failure)
+			return nil, fmt.Errorf("error! failure reason: %s", failure)
 		}
 
 		peers := trackerResponse["peers"].(string)

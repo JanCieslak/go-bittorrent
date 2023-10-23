@@ -59,6 +59,18 @@ func main() {
 			fmt.Println(p)
 		}
 
+	case "peers":
+		if len(os.Args) != 3 {
+			fmt.Println("No torrent file to parse specified")
+			os.Exit(1)
+		}
+
+		meta, err := mybittorrent.ParseMetaInfoFile(os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
 		trackerInfo, err := mybittorrent.FetchTrackerInfo(meta)
 		if err != nil {
 			fmt.Println(err)
