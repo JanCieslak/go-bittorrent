@@ -1,10 +1,11 @@
-package mybittorrent
+package torrent
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent/bencode"
+	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent/internal"
 	"io"
 	"net"
 	"net/http"
@@ -23,19 +24,13 @@ type Peer struct {
 
 var trackerInfoClient = new(http.Client)
 
-func randomPeerId() ([]byte, error) {
-	b := make([]byte, 20)
-	_, err := rand.Read(b)
-	return b, err
-}
-
 func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, meta.Announce, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	peerId, err := randomPeerId()
+	peerId, err := internal.RandomPeerId()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +56,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 		return nil, err
 	}
 
-	decoded, err := NewDecoder(string(body)).Decode()
+	decoded, err := bencode.NewDecoder(string(body)).Decode()
 	if err != nil {
 		return nil, err
 	}

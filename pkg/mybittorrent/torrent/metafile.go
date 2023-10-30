@@ -1,10 +1,11 @@
-package mybittorrent
+package torrent
 
 import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent/bencode"
 	"os"
 	"sort"
 )
@@ -24,7 +25,7 @@ type Info struct {
 
 func (m MetaInfoFile) HashInfo() []byte {
 	info := m.Raw["info"].(map[string]interface{})
-	infoHash := sha1.Sum([]byte(Encode(info)))
+	infoHash := sha1.Sum([]byte(bencode.Encode(info)))
 	return infoHash[:]
 }
 
@@ -34,7 +35,7 @@ func ParseMetaInfoFile(filepath string) (*MetaInfoFile, error) {
 		return nil, err
 	}
 
-	decoded, err := NewDecoder(string(fileContent)).Decode()
+	decoded, err := bencode.NewDecoder(string(fileContent)).Decode()
 	if err != nil {
 		return nil, err
 	}

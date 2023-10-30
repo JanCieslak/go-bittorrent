@@ -1,4 +1,4 @@
-package mybittorrent
+package bencode
 
 import (
 	"bytes"
