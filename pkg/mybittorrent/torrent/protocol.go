@@ -133,12 +133,11 @@ func (p *PeerConn) Send(messageId MessageId, data []byte) error {
 
 func (p *PeerConn) Download(meta *MetaInfoFile, pieceIndex int) ([]byte, error) {
 	length := meta.Info.Length
+	// TODO:
 	pieceLength := meta.Info.PieceLength
 	if pieceIndex >= length/pieceLength {
 		pieceLength = length - (pieceLength * pieceIndex)
 	}
-
-	log.Println("File length:", length)
 
 	blocks := (pieceLength / BlockSize) + 1
 	lastBlockSize := pieceLength % BlockSize
@@ -193,6 +192,11 @@ func (p *PeerConn) Download(meta *MetaInfoFile, pieceIndex int) ([]byte, error) 
 
 	sumHash := sha1.Sum(piece)
 	log.Printf("Gathered piece hash: %s, piece hash: %s\n", hex.EncodeToString(sumHash[:]), pieceHash)
+
+	// TODO:
+	for i, shas := range meta.Info.Pieces {
+		log.Printf("#%d - sha: %s", i, shas)
+	}
 
 	return piece, nil
 }

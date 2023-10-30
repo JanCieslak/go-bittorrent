@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -190,6 +191,104 @@ func main() {
 		file.Write(data)
 
 		fmt.Printf("Piece %d downloaded to %s\n", pieceIndex, os.Args[3])
+	case "download":
+		if os.Args[2] != "-o" {
+			fmt.Println("Output argument not specified")
+			os.Exit(1)
+		}
+
+		if len(os.Args) != 5 {
+			fmt.Println("not enough args")
+			os.Exit(1)
+		}
+
+		meta, err := torrent.ParseMetaInfoFile(os.Args[4])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		trackerInfo, err := torrent.FetchTrackerInfo(meta)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		address := trackerInfo.Peers[0].IP.String() + ":" + strconv.FormatInt(int64(trackerInfo.Peers[0].Port), 10)
+
+		conn, err := torrent.EstablishPeerConnection(meta, address)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		payload, err := conn.Receive()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if payload.MessageId == torrent.BitFieldMessageId {
+			log.Println("BitField received")
+		} else {
+			log.Printf("Unexpected message id: %v\n", payload.MessageId)
+		}
+
+		err = conn.Send(torrent.InterestedMessageId, []byte{})
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		log.Println("Interested message sent")
+
+		payload, err = conn.Receive()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if payload.MessageId == torrent.UnchokeMessageId {
+			log.Println("Unchoke received")
+		} else {
+			log.Printf("Unexpected message id: %v\n", payload.MessageId)
+		}
+
+		buf := new(bytes.Buffer)
+
+		for i, _ := range meta.Info.Pieces {
+			data, err := conn.Download(meta, i)
+			if err != nil {
+				log.Println(err)
+				os.Exit(1)
+			}
+			n, err := buf.Write(data)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if n != len(data) {
+				log.Println("ERRRORR")
+				return
+			}
+			//sha := sha1.Sum(data)
+			//hexcoded := hex.EncodeToString(sha[:])
+			//if piece != hexcoded {
+			//	log.Printf("expected: %s, got: %s\n", piece, hexcoded)
+			//	return
+			//}
+		}
+
+		// Write piece to file
+		file, err := os.Create(os.Args[3])
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		defer file.Close()
+		file.Write(buf.Bytes())
+
+		fmt.Printf("Downloaded %s to %s\n", os.Args[4], os.Args[3])
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
