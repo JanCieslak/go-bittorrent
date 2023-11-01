@@ -1,11 +1,10 @@
-package torrent
+package bittorrent
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent/bencode"
-	"github.com/codecrafters-io/bittorrent-starter-go/pkg/mybittorrent/internal"
+	"github.com/codecrafters-io/bittorrent-starter-go/pkg/bittorrent/bencoding"
 	"io"
 	"net"
 	"net/http"
@@ -30,7 +29,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 		return nil, err
 	}
 
-	peerId, err := internal.RandomPeerId()
+	peerId, err := randomPeerId()
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func FetchTrackerInfo(meta *MetaInfoFile) (*TrackerInfo, error) {
 		return nil, err
 	}
 
-	decoded, err := bencode.NewDecoder(string(body)).Decode()
+	decoded, err := bencoding.Decode(body)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package bencode
+package bencoding
 
 import (
 	"bytes"
@@ -7,21 +7,33 @@ import (
 	"unicode"
 )
 
-type Decoder struct {
+func DecodeString(encoded string) (interface{}, error) {
+	return newDecoder(bytes.NewBufferString(encoded)).decode()
+}
+
+func Decode(encoded []byte) (interface{}, error) {
+	return newDecoder(bytes.NewBuffer(encoded)).decode()
+}
+
+type decoder struct {
 	*bytes.Buffer
 }
 
-func NewDecoder(encoded string) *Decoder {
-	return &Decoder{
-		Buffer: bytes.NewBufferString(encoded),
+func newDecoder(b *bytes.Buffer) *decoder {
+	return &decoder{
+		Buffer: b,
 	}
 }
 
-func (b *Decoder) Decode() (interface{}, error) {
-	return b.decodeBencode()
+func (b *decoder) decode() (interface{}, error) {
+	value, err := b.decodeBencode()
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode bencoded value, err = %w", err)
+	}
+	return value, nil
 }
 
-func (b *Decoder) decodeBencode() (interface{}, error) {
+func (b *decoder) decodeBencode() (interface{}, error) {
 	prefix, _, err := b.ReadRune()
 	if err != nil {
 		return nil, err
@@ -44,7 +56,7 @@ func (b *Decoder) decodeBencode() (interface{}, error) {
 	}
 }
 
-func (b *Decoder) decodeString() (string, error) {
+func (b *decoder) decodeString() (string, error) {
 	strLen, err := b.ReadString(':')
 	if err != nil {
 		return "", err
@@ -59,7 +71,7 @@ func (b *Decoder) decodeString() (string, error) {
 	return string(b.Next(intStrLen)), nil
 }
 
-func (b *Decoder) decodeInteger() (int, error) {
+func (b *decoder) decodeInteger() (int, error) {
 	num, err := b.ReadString('e')
 	if err != nil {
 		return 0, err
@@ -67,7 +79,7 @@ func (b *Decoder) decodeInteger() (int, error) {
 	return strconv.Atoi(num[:len(num)-1])
 }
 
-func (b *Decoder) decodeList() ([]interface{}, error) {
+func (b *decoder) decodeList() ([]interface{}, error) {
 	list := make([]interface{}, 0)
 
 	nextRune, _, err := b.ReadRune()
@@ -81,7 +93,7 @@ func (b *Decoder) decodeList() ([]interface{}, error) {
 			return nil, err
 		}
 
-		item, err := b.Decode()
+		item, err := b.decodeBencode()
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +109,7 @@ func (b *Decoder) decodeList() ([]interface{}, error) {
 	return list, nil
 }
 
-func (b *Decoder) decodeDict() (map[string]interface{}, error) {
+func (b *decoder) decodeDict() (map[string]interface{}, error) {
 	dict := make(map[string]interface{})
 
 	nextRune, _, err := b.ReadRune()
@@ -116,7 +128,7 @@ func (b *Decoder) decodeDict() (map[string]interface{}, error) {
 			return nil, err
 		}
 
-		value, err := b.Decode()
+		value, err := b.decodeBencode()
 		if err != nil {
 			return nil, err
 		}
